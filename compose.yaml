@@ -1,0 +1,41 @@
+services:
+  main:
+    build:
+      context: .
+      dockerfile: docker/main.Dockerfile
+    env_file: .env
+    environment:
+      API_HOST: 0.0.0.0
+      SCANNER_URL: http://scanner:${SCANNER_PORT}/scan
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKERFILE_SCANNER_URL: http://scanner:${SCANNER_PORT}/scan/dockerfile
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    command: >
+      sh -c 'exec uvicorn app.main:app
+      --host "$$API_HOST"
+      --port "$$API_PORT"'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - scanner
+
+  scanner:
+    build:
+      context: .
+      dockerfile: docker/scanner.Dockerfile
+    env_file: .env
+    environment:
+      SCANNER_HOST: 0.0.0.0
+    ports:
+      - "${SCANNER_PORT}:${SCANNER_PORT}"
+    command: >
+      sh -c 'exec uvicorn mock_scanner.main:app
+      --host "$$SCANNER_HOST"
+      --port "$$SCANNER_PORT"'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - trivy-cache:/root/.cache/trivy
+
+volumes:
+  trivy-cache:
